@@ -1,0 +1,1 @@
+# Ligands-binding-diffusively-to-protein-target-act-as-inhibitors
