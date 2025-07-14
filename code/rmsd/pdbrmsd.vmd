@@ -1,0 +1,53 @@
+
+# load trajectory
+
+set repmin 1
+set repmax 1
+set trmin 1
+set trmax 4
+set strmin 1
+set strmax 200000
+
+#initial solvated NCB peptide structure. This should match pdb.
+mol new /data/wjeffrie/impa/kkpkke_dp9o/kkpkke_solv_ions.psf waitfor all
+mol addfile /data/wjeffrie/impa/kkpkke_dp9o/kkpkke_solv_ions.pdb waitfor all
+
+set minNLS {35  68  72  75  76  78  79  80  81  82  85 111 114 118 122 158 161}
+set prot0 [atomselect top "segname PROT and resid $minNLS and noh and sidechain"]
+set pept0 [atomselect top "segname PEPT and noh"]
+
+mol new /data/wjeffrie/impa/kkpkke_dp9o/tr1/kkpkke_dp9o_solv_ions.psf waitfor all
+set path /data/wjeffrie/impa/kkpkke_dp9o
+
+for {set rep $repmin} {$rep <= $repmax} {incr rep 1} {
+ for {set tr $trmin} {$tr <= $trmax} {incr tr 1} {
+   set outfile1 [open "pdbrmsd/pdbrmsd_tr${tr}_rep${rep}_full.dat" w]
+   for {set strid $strmin} {$strid <= $strmax} {incr strid 1} {
+     if { $strid >= 1 && $strid < 10 } {   
+       mol addfile ${path}/tr${tr}/output/abf_quench${tr}_000${strid}_${rep}.dcd waitfor all
+     } elseif { $strid >= 10 && $strid < 100 } {   
+       mol addfile ${path}/tr${tr}/output/abf_quench${tr}_00${strid}_${rep}.dcd waitfor all
+     } elseif { $strid >= 100 && $strid < 10000 } {   
+       mol addfile ${path}/tr${tr}/output/abf_quench${tr}_0${strid}_${rep}.dcd waitfor all
+     } elseif { $strid >= 10000 } {   
+       mol addfile ${path}/tr${tr}/output/abf_quench${tr}_${strid}_${rep}.dcd waitfor all
+     }
+     set proti [atomselect top "segname PROT and resid $minNLS and noh and sidechain"]
+     set pepti [atomselect top "segname PEPT and noh"]
+
+     set tm [measure fit $proti $prot0]
+     $pepti move $tm
+
+     puts $outfile1 [measure rmsd $pept0 $pepti]
+     $proti delete
+     $pepti delete
+     animate delete all
+   }
+ 
+ flush $outfile1
+ close $outfile1
+ }
+}
+$prot0 delete
+$pept0 delete
+exit

@@ -1,0 +1,56 @@
+
+#### COMPUTE PAIRWISE RMSD
+
+set rep 1
+
+mol new ./trajectory.pdb waitfor all filebonds off autobonds off 
+
+set nfr [molinfo top get numframes]
+  
+set prot1 [atomselect top "segname PROT"]
+set pept1 [atomselect top "segname PEPT"]
+set peptlig1 [atomselect top "segname PEPT LIG1"]
+
+set prot2 [atomselect top "segname PROT"]
+set pept2 [atomselect top "segname PEPT"]
+set peptlig2 [atomselect top "segname PEPT LIG1"]
+set output_file [open "rmsd_pept_list.dat" w]
+  
+for {set i 0} {$i < $nfr} {incr i 1} {
+  $prot1 frame $i
+  $prot1 update
+
+  $pept1 frame $i
+  $pept1 update
+
+  $peptlig1 frame $i
+  $peptlig1 update
+  
+  for {set j [expr $i + 1]} {$j < $nfr} {incr j 1} { 
+    $prot2 frame $j
+    $prot2 update 
+  
+    $pept2 frame $j
+    $pept2 update
+
+    $peptlig2 frame $j
+    $peptlig2 update
+ 
+    set tm [measure fit $prot2 $prot1]
+    $prot2 move $tm
+    $peptlig2 move $tm
+
+    set rmsdP [measure rmsd $pept1 $pept2]
+
+#    puts $output_file "$rmsdP " nonewline
+    puts $output_file $rmsdP
+  } 
+
+#  puts $output_file " "
+}
+
+flush $output_file
+close $output_file
+
+exit
+

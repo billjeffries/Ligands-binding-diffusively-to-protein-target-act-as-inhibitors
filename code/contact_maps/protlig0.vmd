@@ -1,0 +1,45 @@
+#This script gets protein-ligand contacts for initial structures
+set rep 1
+
+set trmin 1
+set trmax 4
+
+mol new /home/wjeffrie/impa/kkpkke_dp9o/tr1/kkpkke_dp9o_solv_ions.psf waitfor all
+
+#Ligand group heavy atoms
+set lgatoms {"C1 C2 C3 C4 C5 C6" "C30 C31 N29" "C23 C24 C25 C26 C27 C28" "C7 C10 C11 C22 N9 O8 O12" "C14 C15 C16 N13" "C18 C19 C21 N17 N20"}
+
+#get list of residues in peptide
+set sel [atomselect top "segname PEPT and name CA"]
+set peptResList [lsort -dictionary -unique [$sel get resid]]
+$sel delete
+
+#file mkdir cm0
+
+for {set tr $trmin} {$tr <= $trmax} {incr tr 1} {
+ set output_file [open "./cm0/protlig0_cm${tr}.dat" w]
+ for {set lg 0} {$lg < [llength $lgatoms]} {incr lg 1} {
+
+    set path /home/wjeffrie/impa/kkpkke_dp9o/equil/initcoor/output${tr}
+    #delete previous frame
+    animate delete all
+    mol addfile ${path}/abf_quench${rep}_0.coor waitfor all
+     #declare contacts as list of 0s
+      set cm [lrepeat 211 0]
+      #get list of protein atoms in contact
+      set sel [atomselect top "(segname PROT and noh) and within 4.5 of (segname LIG1 and name [lindex $lgatoms $lg])"]
+      set contacts [lsort -dictionary -unique [$sel get resid]]
+      $sel delete
+      foreach protRes $contacts {
+        #set all values with in CM to 1 if contact is made
+	set resNum [expr $protRes - 1]
+        set cm [lreplace $cm $resNum $resNum 1]
+      }
+      #add peptide's contact map to overall map
+    puts $output_file $cm
+  }
+  flush $output_file
+  close $output_file
+}
+
+exit

@@ -1,0 +1,59 @@
+#This script gets protein-peptide contact map by frame
+set rep 1
+
+set trmin 1
+set trmax 4
+
+set strmin 100001
+set strmax 120000
+
+#number of frames to increment by
+set skip 1
+
+mol new /data/wjeffrie/impa/kkpkke_dp9o/tr1/kkpkke_dp9o_solv_ions.psf waitfor all
+
+#get list of residues in peptide
+set sel [atomselect top "segname PEPT and name CA"]
+set peptResList [lsort -dictionary -unique [$sel get resid]]
+$sel delete
+
+for {set tr $trmin} {$tr <= $trmax} {incr tr 1} {
+  set output_file [open "./cm_nt/kkpkke_cm${tr}.dat" a]
+  for {set str $strmin} {$str <= $strmax} {incr str $skip} {  
+    if {$str < 1000} { 
+      set cstr [format "%04i" $str]
+    } elseif {$str >= 1000 && $str < 100000} {
+      set cstr [format "%05i" $str]
+    } elseif {$str >= 100000} {
+      set cstr [format "%06i" $str]
+    }
+
+    set path /data/wjeffrie/impa/kkpkke_dp9o/tr${tr}
+    #delete previous frame
+    animate delete all
+    mol addfile ${path}/output/abf_quench${tr}_${cstr}_${rep}.dcd waitfor all
+    
+    #declare empty contact map
+    set cm {}
+    foreach peptRes $peptResList {
+      #declare contacts as list of 0s
+      set peptCM [lrepeat 211 0]
+      #get list of protein atoms in contact
+      set sel [atomselect top "(segname PROT and noh) and within 4.5 of (segname PEPT and resid $peptRes and noh and (sidechain or backbone))"]
+      set contacts [lsort -dictionary -unique [$sel get resid]]
+      $sel delete
+      foreach protRes $contacts {
+        #set all values with in CM to 1 if contact is made
+	      set resNum [expr $protRes - 1]
+        set peptCM [lreplace $peptCM $resNum $resNum 1]
+      }
+      #add peptide's contact map to overall map
+      set cm [concat $cm $peptCM]
+    } 
+    puts $output_file $cm
+  }
+  flush $output_file
+  close $output_file
+}
+
+exit

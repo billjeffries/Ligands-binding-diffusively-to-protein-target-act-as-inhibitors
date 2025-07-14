@@ -1,0 +1,81 @@
+
+#### SAVE TRAJECTORY
+
+set rep 1
+
+set trmin 1
+set trmax 4
+
+set strmin 150020
+set strmax 200000
+set skip 20
+
+set peptStart 6
+set peptEnd 11
+
+set contact_file [open "kkpkke_contacts.dat" w]
+set minNLS {35  68  72  75  76  78  79  80  81  82  85 111 114 118 122 158 161}
+#get native contacts
+set nativeCM {}
+mol new 3ve6.pdb
+for {set i $peptStart} {$i <= $peptEnd} {incr i 1} {
+  set sel [atomselect top "chain A and noh and within 4.5 of (chain B and noh and resid $i)"]
+  lappend nativeCM [lsort -unique -dictionary [$sel get resid]]
+}
+mol delete top
+
+set output_file [open "trajectory.pdb" w]
+
+for {set tr $trmin} {$tr <= $trmax} {incr tr 1} {
+  for {set str $strmin} {$str <= $strmax} {incr str $skip} {  
+    if {$str < 1000} { 
+      set cstr [format "%04i" $str]
+    } elseif {$str >= 1000 && $str < 100000} {
+      set cstr [format "%05i" $str]
+    } elseif {$str >= 100000} {
+      set cstr [format "%06i" $str]
+    }
+
+    set path ../tr${tr}
+    mol delete all
+    mol new ../tr1/kkpkke_dp9o_solv_ions.psf waitfor all
+    mol addfile ${path}/output/abf_quench${tr}_${cstr}_${rep}.dcd waitfor all
+
+    set native 0
+    set nonnative 0 
+    for {set res $peptStart} {$res <= $peptEnd} {incr res 1} {
+      #get list of contacts per residue
+      set sel [atomselect top "segname PROT and noh and within 4.5 of (segname PEPT and resid $res and noh)"]
+      set resCM [lsort -unique -dictionary [$sel get resid]]
+      $sel delete
+      #compare contacts to native
+      set resi [expr $res - $peptStart]
+      
+      foreach contact $resCM {
+        set check [lsearch -exact [lindex $nativeCM $resi] $contact]
+        if {$check >= 0} {
+          incr native 1
+        } else {
+          incr nonnative 1
+        }
+      }
+    }   
+    #write to file
+    puts $contact_file "$native $nonnative"
+    #save structure
+    set sel [atomselect top "(segname PROT and resid $minNLS and sidechain and noh) or (segname PEPT and noh) or (segname LIG1 and noh)"]
+    $sel writepdb "temp.pdb"
+    $sel delete           
+
+    set f [open "temp.pdb" r]
+    set fd [read $f]
+    close $f
+    puts $output_file $fd
+  }
+}
+
+flush $output_file
+close $output_file
+flush $contact_file
+close $contact_file
+exit
